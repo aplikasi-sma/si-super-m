@@ -331,7 +331,12 @@
 
                     <!-- Refleksi & Tindak Lanjut -->
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h3 class="text-lg font-bold text-slate-800 border-b pb-3 mb-4">C. Evaluasi, Refleksi, dan Tindak Lanjut</h3>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 mb-4 gap-4">
+                            <h3 class="text-lg font-bold text-slate-800">C. Evaluasi, Refleksi, dan Tindak Lanjut</h3>
+                            <button type="button" onclick="generateRefleksiAI()" id="btnAIRefleksi" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm transition flex items-center gap-1.5 border border-purple-200">
+                                <span>✨</span> Generate dengan AI
+                            </button>
+                        </div>
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1">Hal yang perlu ditingkatkan (Refleksi / Analisis Penyebab)</label>
@@ -497,7 +502,10 @@
                         <h2 class="text-lg font-bold text-slate-800">Dokumen Laporan (Format A4)</h2>
                         <p class="text-sm text-slate-500">Gunakan ukuran kertas A4 saat mencetak (Print).</p>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="generateSimpulanAI()" id="btnAISimpulan" class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition flex items-center gap-2 border border-purple-200">
+                            <span>✨</span> Buat Simpulan AI
+                        </button>
                         <button onclick="exportToWord()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                             Ekspor Word (.doc)
@@ -588,7 +596,9 @@
 
                         <div class="mb-6 text-justify">
                             <h3 class="font-bold mb-2">F. SIMPULAN</h3>
-                            <p class="leading-relaxed mb-4">Hasil evaluasi menunjukkan bahwa pembelajaran sudah berjalan dengan baik, namun masih perlu penguatan pada keterlibatan murid, pembelajaran kontekstual, asesmen HOTS, dan integrasi KKA. Melalui refleksi berbasis data, diperoleh pemahaman bahwa permasalahan utama terletak pada strategi pembelajaran dan pemahaman guru terhadap Pembelajaran Mendalam. Tindak lanjut difokuskan pada perbaikan spesifik melalui coaching, pendampingan, dan pelatihan yang berkelanjutan.</p>
+                            <div id="teksSimpulan">
+                                <p class="leading-relaxed mb-4">Hasil evaluasi menunjukkan bahwa pembelajaran sudah berjalan dengan baik, namun masih perlu penguatan pada keterlibatan murid, pembelajaran kontekstual, asesmen HOTS, dan integrasi KKA. Melalui refleksi berbasis data, diperoleh pemahaman bahwa permasalahan utama terletak pada strategi pembelajaran dan pemahaman guru terhadap Pembelajaran Mendalam. Tindak lanjut difokuskan pada perbaikan spesifik melalui coaching, pendampingan, dan pelatihan yang berkelanjutan.</p>
+                            </div>
                         </div>
 
                         <div class="mb-8 text-justify">
@@ -933,9 +943,14 @@
         });
 
         // Event Logout
-        document.getElementById('btnLogout').addEventListener('click', () => {
-            signOut(auth);
-            showToast("Anda telah keluar.", "success");
+        document.getElementById('btnLogout').addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                // Refresh halaman untuk mematikan semua listener database
+                window.location.reload();
+            } catch (error) {
+                console.error("Error saat logout:", error);
+            }
         });
 
         // Toggle Form Login/Register
@@ -1641,6 +1656,162 @@
         // 6. UTILITAS & EKSPOR/IMPOR
         // ==========================================
         
+        // AI Generator untuk Input Supervisi
+        window.generateRefleksiAI = async () => {
+            const h = window.hitungSkor();
+            const btn = document.getElementById('btnAIRefleksi');
+            
+            // Siapkan prompt berdasarkan nilai
+            let prompt = `Tindak bertindak sebagai pakar pendidikan dan kepala sekolah. 
+            Berdasarkan hasil supervisi akademik berikut, buatkan 1 paragraf singkat (maksimal 4 kalimat) untuk kolom 'Refleksi/Analisis Penyebab' (berisi hal yang perlu ditingkatkan) dan 1 kalimat singkat (maksimal 15 kata) untuk kolom 'Tindak Lanjut'.
+            
+            Data Supervisi:
+            Skor Keseluruhan: ${h.skorAkhir.toFixed(1)} / 100
+            Skor Kerangka Pembelajaran: ${h.skorKerangka.toFixed(1)} / 100
+            Skor Prinsip Pembelajaran: ${h.skorPrinsip.toFixed(1)} / 100
+            Skor Pengalaman Belajar: ${h.skorPengalaman.toFixed(1)} / 100
+            `;
+
+            if (h.skorKerangka < 80) prompt += "\nCatatan: Guru kurang optimal memfasilitasi lingkungan belajar dan teknologi digital.";
+            if (h.skorPrinsip < 80) prompt += "\nCatatan: Penerapan prinsip pembelajaran bermakna dan diferensiasi belum konsisten.";
+            if (h.skorPengalaman < 80) prompt += "\nCatatan: Pelibatan murid dalam berpikir kritis (HOTS) dan refleksi belajar masih kurang.";
+            if (h.skorAkhir >= 90) prompt += "\nCatatan: Secara umum pembelajaran sudah sangat baik.";
+
+            const systemPrompt = "Anda adalah AI asisten kepala sekolah. Berikan respons dalam format JSON yang berisi dua properti: 'refleksi' (string) dan 'tindak_lanjut' (string). Jangan tambahkan teks markdown atau penjelasan lainnya.";
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${apiKey}`;
+
+            try {
+                btn.innerHTML = `<svg class="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Memproses AI...`;
+                btn.disabled = true;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if(!response.ok) throw new Error("Gagal mengambil data dari AI");
+                
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0].content.parts.length > 0) {
+                    const jsonText = result.candidates[0].content.parts[0].text;
+                    const parsed = JSON.parse(jsonText);
+                    document.getElementById('txtRefleksi').value = parsed.refleksi;
+                    document.getElementById('txtTindakLanjut').value = parsed.tindak_lanjut;
+                    if(!document.getElementById('txtPeranKS').value) document.getElementById('txtPeranKS').value = "Coaching & Mentoring";
+                    if(!document.getElementById('txtWaktu').value) document.getElementById('txtWaktu').value = "2 Minggu";
+                    showToast("Teks berhasil digenerate oleh AI Gemini!", "success");
+                } else {
+                     throw new Error("Respons AI kosong.");
+                }
+
+            } catch (error) {
+                console.error("AI Error:", error);
+                showToast("Gagal menghubungi AI. Silakan coba lagi.", "error");
+            } finally {
+                btn.innerHTML = `<span>✨</span> Generate dengan AI`;
+                btn.disabled = false;
+            }
+        };
+
+        // AI Generator untuk Laporan Utuh A4
+        window.generateLaporanUtuhAI = async () => {
+            const total = parseInt(document.getElementById('dash-total').innerText) || 0;
+            if (total === 0) {
+                showToast("Data supervisi belum tersedia untuk dianalisis.", "error"); return;
+            }
+
+            const rata = parseFloat(document.getElementById('dash-rata').innerText) || 0;
+            const baik = parseInt(document.getElementById('dash-sangat-baik').innerText) || 0;
+            const kurang = parseInt(document.getElementById('dash-kurang').innerText) || 0;
+            const vKerangka = parseFloat(document.getElementById('valKerangka').innerText) || 0;
+            const vPrinsip = parseFloat(document.getElementById('valPrinsip').innerText) || 0;
+            const vPengalaman = parseFloat(document.getElementById('valPengalaman').innerText) || 0;
+            const namaSekolah = document.getElementById('setNamaSekolah').value || "Sekolah Anda";
+
+            const btn = document.getElementById('btnAILaporan');
+            
+            const prompt = `Bertindaklah sebagai Kepala Sekolah ${namaSekolah} yang ahli dalam manajemen pendidikan. 
+            Tuliskan dokumen Laporan Evaluasi, Refleksi, dan Tindak Lanjut Hasil Supervisi Akademik secara lengkap.
+            
+            Gunakan data statistik riil berikut sebagai acuan penulisan:
+            - Total Guru disupervisi: ${total} orang
+            - Rata-rata Skor Kinerja Keseluruhan: ${rata} / 100
+            - Predikat Sangat Baik (A): ${baik} guru
+            - Predikat Perlu Bimbingan/Kurang (C/D): ${kurang} guru
+            - Rata-rata Skor Kerangka Pembelajaran: ${vKerangka} / 100
+            - Rata-rata Skor Prinsip Pembelajaran: ${vPrinsip} / 100
+            - Rata-rata Skor Pengalaman Belajar: ${vPengalaman} / 100
+            
+            Susun narasinya menjadi bagian-bagian berikut:
+            1. Latar Belakang: Buat 2 paragraf. Kaitkan dengan capaian skor rata-rata di atas. Jika ada skor aspek yang rendah, sebutkan sebagai urgensi/alasan mengapa evaluasi ini penting.
+            2. Tujuan: Buat 4-5 poin tujuan spesifik (gunakan format list).
+            3. Sasaran: 1 kalimat lugas yang menyebutkan sasaran adalah guru di ${namaSekolah}.
+            4. Ruang Lingkup: Buat 4-5 poin batasan ruang lingkup evaluasi (format list).
+            5. Simpulan: Buat 2-3 paragraf berisi analisis mendalam dari data angka di atas. Sebutkan aspek apa yang sudah jadi kekuatan, aspek terlemah (Kerangka, Prinsip, atau Pengalaman), dan arah perbaikannya.
+            6. Penutup: Buat 1-2 paragraf kalimat penutup yang optimis dan memotivasi peningkatan mutu pendidikan.`;
+
+            const systemPrompt = `Anda adalah sistem pembuat laporan akademik profesional. Anda WAJIB merespons HANYA dalam format JSON dengan struktur kunci (key) berikut: 
+            "latar_belakang", "tujuan", "sasaran", "ruang_lingkup", "simpulan", "penutup". 
+            Isi setiap key dengan format string HTML murni (<p> untuk paragraf tunggal, <ol class="list-decimal pl-5 space-y-1"><li>...</li></ol> untuk list poin). Jangan menggunakan markdown text block.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-preview:generateContent?key=${apiKey}`;
+
+            try {
+                btn.innerHTML = `<svg class="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> AI Sedang Menulis...`;
+                btn.disabled = true;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if(!response.ok) throw new Error("Gagal dari AI");
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0].content.parts.length > 0) {
+                     const jsonText = result.candidates[0].content.parts[0].text;
+                     const parsed = JSON.parse(jsonText);
+                     
+                     // Inject ke masing-masing elemen HTML
+                     if(parsed.latar_belakang) document.getElementById('teksLatarBelakang').innerHTML = parsed.latar_belakang;
+                     if(parsed.tujuan) document.getElementById('teksTujuan').innerHTML = parsed.tujuan;
+                     if(parsed.sasaran) document.getElementById('teksSasaran').innerHTML = parsed.sasaran;
+                     if(parsed.ruang_lingkup) document.getElementById('teksRuangLingkup').innerHTML = parsed.ruang_lingkup;
+                     if(parsed.simpulan) document.getElementById('teksSimpulan').innerHTML = parsed.simpulan;
+                     if(parsed.penutup) document.getElementById('teksPenutup').innerHTML = parsed.penutup;
+
+                     showToast("Seluruh isi laporan berhasil dibuat ulang oleh AI Gemini!", "success");
+                } else {
+                     throw new Error("Respons AI kosong.");
+                }
+
+            } catch (error) {
+                console.error("AI Error:", error);
+                showToast("Gagal menghubungi AI. Coba lagi.", "error");
+            } finally {
+                btn.innerHTML = `<span>✨</span> Buat Laporan Utuh AI`;
+                btn.disabled = false;
+            }
+        };
+
         // Tab Switcher
         window.switchTab = (targetId) => {
             document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
